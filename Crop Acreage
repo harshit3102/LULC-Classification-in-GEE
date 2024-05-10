@@ -1,0 +1,266 @@
+//Map.centerObject(custor);
+//Map.addLayer(custor, {color: 'blue'});
+
+//Map.centerObject(wheat);
+//Map.addLayer(wheat, {color: 'yellow'});
+
+//Map.centerObject(maizep);
+//Map.addLayer(maizep, {color: 'black'});
+
+//Map.centerObject(rice);
+//Map.addLayer(rice, {color: 'orange'});
+
+//Map.centerObject(sorghum);
+//Map.addLayer(sorghum, {color: 'orange'});
+
+//Map.centerObject(GROUNDNUT);
+//Map.addLayer(GROUNDNUT, {color: 'Black'});
+
+//Map.centerObject(COWPEA);
+//Map.addLayer(COWPEA, {color: 'Black'});
+
+//Map.centerObject(CLUSTERBEANS);
+//Map.addLayer(CLUSTERBEANS, {color: 'Black'});
+
+//Map.centerObject(ladiesfinger);
+//Map.addLayer(ladiesfinger, {color: 'Black'});
+
+Map.centerObject(Tobacco);
+Map.addLayer(Tobacco, {color: 'Black'});
+
+
+var imagecollection = ee.ImageCollection("COPERNICUS/S2_HARMONIZED");
+var image = imagecollection.filterBounds(geometry)
+                        .filterDate('2023-12-15','2024-01-01')
+                        .sort('CLOUDY_PIXEL_PERCENTAGE', false)
+                        .mosaic()
+                        .clip(geometry);
+Map.addLayer(image,imageVisParam);
+
+var bands = ['B1','B2','B3','B4','B5','B6','B7','B8','B9','B10','B11','B12'];
+
+// Assuming maize and wheat are feature collections
+var maizeWithClass = custor.map(function(feat) {
+  return feat.set('class', 0); // Assign numeric class label for maize
+});
+
+var wheatWithClass = custor.map(function(feat) {
+  return feat.set('class', 1); // Assign numeric class label for wheat
+});
+
+// Merge feature collections with class property
+var sample = (wheatWithClass).merge(water).merge(buildingarea).merge(densevegetation).merge(lightvegetation).merge(maize_crop).merge(Barrenland).merge(custor_crop).merge(wheat_crop).merge(RICE_CROP).merge(SORGUM_CROP).merge(GROUNDNUT_CROP).merge(COWPEA_CROP).merge(CLUSTERBEANS_CROP).merge(LADIESFINGER).merge(rangeland).merge(Tobacco_crop);
+// Sample regions with the 'class' property included
+var training = image.select(bands).sampleRegions({
+  collection: sample,
+  properties: ['class'], // Ensure 'class' property is included
+  scale: 12
+});
+
+// Check the training data to ensure all features have the 'class' property
+print(training);
+
+// Train the classifier
+var classifier = ee.Classifier.smileRandomForest(100).train({
+  features: training,
+  classProperty: 'class',
+  inputProperties: bands
+});
+
+// Classify the image
+var classified = image.select(bands).classify(classifier);
+
+// Display the classified image
+Map.addLayer(classified, {min: 0, max: 16, palette: ['yellow','green','blue','red','black','white','Orange','brown','Violet','olive','Gold','Silver','cyan','pink','purple','red']}, 'Classified Image');
+// Define your region of interest (ROI)
+var geometry = geometry;
+
+// Specify the class you want to calculate area for
+var classValue = 1; // Assuming the class you want to calculate area for is represented by value 1
+
+// Filter the classified image to include only pixels classified as the specified class
+var classImage = classified.eq(classValue);
+
+// Calculate the area of the specified class within the ROI
+var area = classImage.reduceRegion({
+  reducer: ee.Reducer.sum(), // Sum the pixel values to get total area
+  geometry: geometry,
+  scale: 10, // Adjust scale as needed
+  maxPixels: 1e9 // Set maximum number of pixels to process
+});
+
+// Convert area from square meters to square kilometers
+var areaSqKm = ee.Number(area.get('classification')).divide(1000000);
+
+// Print the area
+print('Area of class ' + classValue + ':', areaSqKm, 'square kilometers');
+
+
+// Print the area
+print('Area of class ' + classValue + ':', area);
+var geometry = geometry;
+
+// Specify the class you want to calculate area for
+var classValue = 2; // Assuming the class you want to calculate area for is represented by value 1
+
+// Filter the classified image to include only pixels classified as the specified class
+var classImage = classified.eq(classValue);
+
+// Calculate the area of the specified class within the ROI
+var area = classImage.reduceRegion({
+  reducer: ee.Reducer.sum(), // Sum the pixel values to get total area
+  geometry: geometry,
+  scale: 10, // Adjust scale as needed
+  maxPixels: 1e9 // Set maximum number of pixels to process
+});
+
+// Convert area from square meters to square kilometers
+var areaSqKm = ee.Number(area.get('classification')).divide(1000000);
+
+// Print the area
+print('Area of class ' + classValue + ':', areaSqKm, 'square kilometers');
+
+
+// Print the area
+print('Area of class ' + classValue + ':', area);
+
+
+
+
+
+
+// Define the resolution of your image in meters
+var resolution = 10; // Assuming 10 meters resolution, adjust as needed
+
+// Specify the class you want to calculate area for
+var classValue = 16; // Blue class
+
+// Filter the classified image to include only pixels classified as the specified class
+var classImage = classified.eq(classValue);
+
+// Calculate the area of the specified class within the ROI
+var area = classImage.multiply(ee.Image.pixelArea()) // Multiply each pixel by its area
+  .reduceRegion({
+    reducer: ee.Reducer.sum(), // Sum the pixel values to get total area
+    geometry: geometry,
+    scale: resolution, // Use the image resolution as the scale
+    maxPixels: 1e9 // Set maximum number of pixels to process
+  });
+
+// Convert area from square meters to square kilometers
+var areaSqKm = ee.Number(area.get('classification')).divide(1000000);
+
+// Print the area
+print('Area of gray class:', areaSqKm, 'square kilometers');
+
+
+
+
+
+// Import your AOI and validation shapefiles
+
+var validationMaize = ee.FeatureCollection("users/harshitpatel3102/MAIZE_POLYGON");
+var validationcustor = ee.FeatureCollection("users/harshitpatel3102/CUSTOR_POLYGON");
+var validationwheat = ee.FeatureCollection("users/harshitpatel3102/WHEAT_POLYGON");
+var validationrice = ee.FeatureCollection("users/harshitpatel3102/RICE_POLYGONN");
+var validationsorghum = ee.FeatureCollection("users/harshitpatel3102/SORGHUM_POLYGONN");
+var validationgroundnut = ee.FeatureCollection("users/harshitpatel3102/GROUNDNUT_POLYGON");
+var validationcowpea = ee.FeatureCollection("users/harshitpatel3102/COWPEA_POLYGON");
+var validationclusterbeans = ee.FeatureCollection("users/harshitpatel3102/CLUSTER_BEANS_POLYGON");
+var validationladiesfinger = ee.FeatureCollection("users/harshitpatel3102/LADIESFINGER_POLYGON");
+var validationtobacco = ee.FeatureCollection("users/harshitpatel3102/Tobacco_polygonn");
+
+// Visualize the AOI and validation data on the map
+Map.centerObject(geometry, 10);
+Map.addLayer(geometry, {color: 'blue'}, 'geometry');
+Map.addLayer(validationMaize, {color: 'red'}, 'Validation Data');
+
+// Assign class labels to validation features
+var validationMaizeWithClass = validationMaize.map(function(feature) {
+  return feature.set('class', 2); // Assuming 2 represents maize class
+});
+
+var validationcustorWithClass = validationcustor.map(function(feature) {
+  return feature.set('class', 1); // Assuming 1 represents wheat class
+});
+
+var validationWheatWithClass = validationwheat.map(function(feature) {
+  return feature.set('class', 8); // Assuming 8 represents wheat class
+});
+
+var validationriceWithClass = validationrice.map(function(feature) {
+  return feature.set('class', 9); // Assuming 8 represents wheat class
+});
+
+var validationsorghumWithClass = validationsorghum.map(function(feature) {
+  return feature.set('class', 10); // Assuming 8 represents wheat class
+});
+
+var validationgroundnutWithClass = validationgroundnut.map(function(feature) {
+  return feature.set('class', 11); // Assuming 8 represents wheat class
+});
+
+var validationcowpeaWithClass = validationcowpea.map(function(feature) {
+  return feature.set('class', 12); // Assuming 8 represents wheat class
+});
+
+var validationclusterbeansWithClass = validationclusterbeans.map(function(feature) {
+  return feature.set('class', 13); // Assuming 8 represents wheat class
+});
+
+var validationladiesfingerWithClass = validationladiesfinger.map(function(feature) {
+  return feature.set('class', 14); // Assuming 8 represents wheat class
+});
+
+var validationtobaccoWithClass = validationtobacco.map(function(feature) {
+  return feature.set('class', 16); // Assuming 8 represents wheat class
+});
+
+
+// Merge validation feature collections with class property
+var validationSample = validationMaizeWithClass.merge(validationcustorWithClass).merge(validationWheatWithClass).merge(validationriceWithClass).merge(validationsorghumWithClass).merge(validationgroundnutWithClass).merge(validationcowpeaWithClass).merge(validationclusterbeansWithClass).merge(validationladiesfingerWithClass).merge(validationtobaccoWithClass);
+// Merge with other classes if applicable
+
+// Print the validation sample to check if everything looks correct
+print('Validation Sample', validationSample);
+
+// Display the validation regions on the map for visual inspection
+Map.centerObject(validationSample);
+Map.addLayer(validationSample, {color: 'blue'}, 'Validation Sample');
+
+
+
+
+// Sample the validation data from the image
+var validationSampled = image.select(bands).sampleRegions({
+  collection: validationSample,
+  properties: ['class'], // Make sure this matches the property name in your validation data
+  scale: 10
+});
+
+// Classify the validation data
+var validationClassified = validationSampled.classify(classifier);
+
+// Generate a confusion matrix to assess classifier accuracy
+var validationConfusionMatrix = validationClassified.errorMatrix('class', 'classification');
+
+// Print the confusion matrix to the Console
+print('Confusion Matrix', validationConfusionMatrix);
+
+// Calculate overall accuracy
+var overallAccuracy = validationConfusionMatrix.accuracy();
+print('Overall Accuracy:', overallAccuracy);
+
+// Calculate kappa coefficient
+var kappaCoefficient = validationConfusionMatrix.kappa();
+print('Kappa Coefficient:', kappaCoefficient);
+
+
+// Export the classified image
+Export.image.toDrive({
+  image: classified,
+  description: 'classified_image',
+  folder: 'GEE_exports', // Specify the folder in your Google Drive for exporting
+  region: geometry.geometry(), // Specify the region of interest for exporting
+  scale: 10 // Adjust scale as needed
+});
